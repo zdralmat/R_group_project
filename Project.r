@@ -35,6 +35,16 @@ netflixData$director <- lapply(netflixData$director, function(x) {
       x[x == ""] <- NA
       return(x) 
       } })
+
+netflixData$country <- strsplit(netflixData$country, split = ", ")
+netflixData$country <- lapply(netflixData$country, function(x) {
+  if (length(x) == 0) { 
+    return(NA) 
+  } else { 
+    x[x == ""] <- NA
+    return(x) 
+  } })
+ 
 netflixData$listed_in <- strsplit(netflixData$listed_in, split = ", ")
 
 netflixDataTV <- netflixData[netflixData$type == "TV Show",]
@@ -44,6 +54,7 @@ netflixDataMovies <- netflixData[netflixData$type == "Movie",]
 netflixDataMovies$duration <-as.numeric(gsub(" min","",netflixDataMovies$duration))
 
 netflixDataTV$duration <- as.numeric(gsub(" Seasons?| Season", "", netflixDataTV$duration))
+
 
 
                                         
