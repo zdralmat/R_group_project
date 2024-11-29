@@ -135,6 +135,36 @@ ggplot(movies_count, aes(x = year, y = count)) +
   labs(title = "Number of Movies Released Over the Years (Log Scale)", x = "Release Year", y = "Number of Movies (Logarithmic)") +
   theme_minimal()
 
+#prep for hist by the director
+
+director_counts <- netflixData %>%
+  filter(!is.na(director)) %>%
+  separate_rows(director, sep = ", ") %>%
+  group_by(director) %>%
+  summarise(num = n()) %>%
+  ungroup()
+
+director_counts <- director_counts %>%
+  filter(director != "")
+
+director_counts
+
+
+works <- director_counts %>%
+  group_by(num) %>%
+  summarise(count = n()) %>%
+  mutate(num = num) %>%
+  select(num, count)
+works
+
+ggplot(works, aes(x = "", y = count, fill = factor(num))) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar(theta = "y") +
+  labs(title = "Number of Works per Director", x = "", y = "", fill = "Number of Works") +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(), axis.ticks = element_blank())
+
+
 
 
 
@@ -197,6 +227,41 @@ server <- function(input, output, session) {
       scale_x_continuous(limits = c(selected_years$first_year, selected_years$last_year)) + # Set x-axis limits 
       labs(title = "Number of Movies Released Over the Years (Log Scale)", x = "Release Year", y = "Number of Movies (Logarithmic)") +
       theme_minimal()
+  })
+}
+
+
+shinyApp(ui = ui, server = server)
+
+
+
+
+ui <- fluidPage(
+  titlePanel("Number of Works per Director"),
+  sidebarLayout(
+    sidebarPanel(
+      sliderInput("min_num", "Minimum Number of Works:", 
+                  min = min(works$num), max = max(works$num), value = min(works$num)
+                  step = 1, ticks = FALSE, animate = TRUE))
+    ),
+    mainPanel(
+      plotOutput("pieChart")
+    )
+  )
+)
+
+
+server <- function(input, output) {
+  output$pieChart <- renderPlot({
+    filtered_works <- works %>%
+      filter(num >= input$min_num)
+    
+    ggplot(filtered_works, aes(x = "", y = count, fill = factor(num))) +
+      geom_bar(stat = "identity", width = 1) +
+      coord_polar(theta = "y") +
+      labs(title = "Number of Works per Director", x = "", y = "", fill = "Number of Works") +
+      theme_minimal() +
+      theme(axis.text.x = element_blank(), axis.ticks = element_blank())
   })
 }
 
