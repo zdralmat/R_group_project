@@ -18,6 +18,49 @@ netflixData$date_added <- mdy(netflixData$date_added)
 #and omitting the rows with the NA will loose too much data
 
 
+#too agresive
+remove_outliers <- function(data, column) {
+  Q1 <- quantile(data[[column]], 0.25, na.rm = TRUE)
+  Q3 <- quantile(data[[column]], 0.75, na.rm = TRUE)
+  IQR <- Q3 - Q1
+  
+  lower_bound <- Q1 - 1.5 * IQR
+  upper_bound <- Q3 + 1.5 * IQR
+  
+  
+  data %>% filter(data[[column]] >= lower_bound & data[[column]] <= upper_bound)
+}
+
+#netflixData <- remove_outliers(netflixData, "release_year")
+
+#can not get it to do what i wanted treshold 10 is closest to what i wanted
+remove_outliers_zscore <- function(data, column, threshold = 10) {
+  data <- data %>%
+    mutate(z_score = (data[[column]] - mean(data[[column]], na.rm = TRUE)) / sd(data[[column]], na.rm = TRUE)) %>%
+    filter(abs(z_score) <= threshold) %>%
+    select(-z_score)
+  
+  return(data)
+}
+
+
+#netflixData <- remove_outliers_zscore(netflixData, "release_year")
+
+remove_rare_values <- function(data, column, min_count) {
+  value_counts <- data %>%
+    group_by_at(column) %>%
+    tally() %>%
+    filter(n >= min_count)
+  
+  filtered_data <- data %>%
+    filter(data[[column]] %in% value_counts[[column]])
+  
+  return(filtered_data)
+}
+
+netflixData <- remove_rare_values(netflixData, "release_year", 2)
+
+
 netflixData$show_id <- as.numeric(gsub("s","",netflixData$show_id))
 netflixData$cast <- strsplit(netflixData$cast, split = ", ")
 netflixData$cast <- lapply(netflixData$cast, function(x) {
@@ -80,7 +123,26 @@ ggplot(movies_count, aes(x = year, y = count)) +
   scale_y_log10() + # Apply logarithmic scale to the y-axis 
   labs(title = "Number of Movies Released Over the Years (Log Scale)", x = "Release Year", y = "Number of Movies (Logarithmic)") + theme_minimal()
 
+
+
+first_year <- min(movies_count$year) 
+last_year <- max(movies_count$year) 
+ggplot(movies_count, aes(x = year, y = count)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  geom_smooth(method = "loess", color = "red", size = 1) + # Add a smooth line 
+  scale_y_log10() + # Apply logarithmic scale to the y-axis 
+  scale_x_continuous(limits = c(first_year, last_year)) + # Set x-axis limits 
+  labs(title = "Number of Movies Released Over the Years (Log Scale)", x = "Release Year", y = "Number of Movies (Logarithmic)") +
+  theme_minimal()
+
+
+
+
+
+
 # Movie vs TV show plot
+
+
 
 type_count <- netflixData %>%
   count(netflixData$type)
