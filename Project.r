@@ -1,4 +1,4 @@
-#Matyas Zdralek use of copilot for dabugging
+#Matyas Zdralek use of copilot for dabugging and to help transforming graphs in to a web apps
 
 toLoad <- c("stringr", "lubridate", "tibble", "ggplot2", "shiny", "tidyr", "dplyr")
 
@@ -125,8 +125,8 @@ ggplot(movies_count, aes(x = year, y = count)) +
 
 
 
-first_year <- min(movies_count$year) 
-last_year <- max(movies_count$year) 
+first_year <- 2001 
+last_year <- 2016 
 ggplot(movies_count, aes(x = year, y = count)) +
   geom_bar(stat = "identity", fill = "steelblue") +
   geom_smooth(method = "loess", color = "red", size = 1) + # Add a smooth line 
@@ -141,9 +141,6 @@ ggplot(movies_count, aes(x = year, y = count)) +
 
 
 # Movie vs TV show plot
-
-
-
 type_count <- netflixData %>%
   count(netflixData$type)
 type_count <- type_count %>%
@@ -159,6 +156,52 @@ ggplot(type_count, aes(x = "", y = percentage, fill = `netflixData$type`)) +
   scale_fill_manual(values = c("Movie" = "#1f77b4", "TV Show" = "#ff7f0e"))+
   labs(fill = "Legend")
 
+
+
+#start of the web app
+ui <- fluidPage(
+  titlePanel("Movies Released Over the Years"),
+  sidebarLayout(
+    sidebarPanel(
+      sliderInput("first_year", "First Year:", min = 1941, max = 2022, value = 1941),
+      sliderInput("last_year", "Last Year:", min = 1941, max = 2022, value = 2022),
+      actionButton("update", "Update Graph")
+    ),
+    mainPanel(
+      plotOutput("moviesPlot")
+    )
+  )
+)
+
+
+
+server <- function(input, output, session) {
+  
+  selected_years <- reactiveValues(first_year = 1942, last_year = 2022)
+  
+  observeEvent(input$update, {
+    selected_years$first_year <- input$first_year
+    selected_years$last_year <- input$last_year
+  })
+  
+  observe({
+    updateSliderInput(session, "last_year", min = input$first_year)
+    updateSliderInput(session, "first_year", max = input$last_year)
+  })
+  
+  output$moviesPlot <- renderPlot({
+    ggplot(movies_count, aes(x = year, y = count)) +
+      geom_bar(stat = "identity", fill = "steelblue") +
+      geom_smooth(method = "loess", color = "red", size = 1) + # Add a smooth line 
+      scale_y_log10() + # Apply logarithmic scale to the y-axis 
+      scale_x_continuous(limits = c(selected_years$first_year, selected_years$last_year)) + # Set x-axis limits 
+      labs(title = "Number of Movies Released Over the Years (Log Scale)", x = "Release Year", y = "Number of Movies (Logarithmic)") +
+      theme_minimal()
+  })
+}
+
+
+shinyApp(ui = ui, server = server)
 
 
                                         
