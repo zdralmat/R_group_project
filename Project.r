@@ -1,6 +1,6 @@
 #Matyas Zdralek use of copilot for dabugging
 
-toLoad <- c("stringr", "lubridate", "tibble", "ggplot2", "shiny", "tidyr")
+toLoad <- c("stringr", "lubridate", "tibble", "ggplot2", "shiny", "tidyr", "dplyr")
 
 for (packageName in toLoad) { 
   if (!require(packageName, character.only = TRUE)) { 
@@ -54,6 +54,40 @@ netflixDataMovies <- netflixData[netflixData$type == "Movie",]
 netflixDataMovies$duration <-as.numeric(gsub(" min","",netflixDataMovies$duration))
 
 netflixDataTV$duration <- as.numeric(gsub(" Seasons?| Season", "", netflixDataTV$duration))
+
+
+
+#Plotting
+
+movies_count <- as.data.frame(table(netflixData$release_year))
+colnames(movies_count) <- c("year", "count")  # Rename columns for clarity
+movies_count$year <- as.numeric(as.character(movies_count$year))  # Ensure year is numeric
+
+#Logartytmic plot of movies released in one year
+
+ggplot(movies_count, aes(x = year, y = count)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  scale_y_log10() +  # Apply logarithmic scale to the y-axis
+  labs(title = "Number of Movies Released Over the Years (Log Scale)",
+       x = "Release Year",
+       y = "Number of Movies (Logarithmic)") +
+  theme_minimal()
+
+# Movie vs TV show plot
+type_count <- netflixData %>%
+  count(netflixData$type)
+type_count <- type_count %>%
+  mutate(percentage = (n / sum(n)) * 100)
+
+ggplot(type_count, aes(x = "", y = percentage, fill = `netflixData$type`)) +
+  geom_bar(stat = "identity", width = 1, color = "white") +
+  coord_polar(theta = "y") +  # Converts to pie chart
+  theme_void() +  # Removes background, grid, and labels
+  ggtitle("Precentage of films and TV shows") +
+  geom_text(aes(label = paste0(round(percentage), "%")), 
+            position = position_stack(vjust = 0.5)) +  # Add labels to the chart
+  scale_fill_manual(values = c("Movie" = "#1f77b4", "TV Show" = "#ff7f0e"))+
+  labs(fill = "Legend")
 
 
 
