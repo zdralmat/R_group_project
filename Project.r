@@ -73,7 +73,15 @@ ggplot(movies_count, aes(x = year, y = count)) +
        y = "Number of Movies (Logarithmic)") +
   theme_minimal()
 
+
+ggplot(movies_count, aes(x = year, y = count)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  geom_smooth(method = "loess", color = "red", linewidth = 1) + # Add a smooth line 
+  scale_y_log10() + # Apply logarithmic scale to the y-axis 
+  labs(title = "Number of Movies Released Over the Years (Log Scale)", x = "Release Year", y = "Number of Movies (Logarithmic)") + theme_minimal()
+
 # Movie vs TV show plot
+
 type_count <- netflixData %>%
   count(netflixData$type)
 type_count <- type_count %>%
