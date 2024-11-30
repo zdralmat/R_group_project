@@ -1,6 +1,6 @@
 #Matyas Zdralek use of copilot for dabugging and to help transforming graphs in to a web apps
 
-toLoad <- c("stringr", "lubridate", "tibble", "ggplot2", "shiny", "tidyr", "dplyr")
+toLoad <- c("stringr", "lubridate", "tibble", "ggplot2", "shiny", "tidyr", "dplyr", "ggrepel")
 
 for (packageName in toLoad) { 
   if (!require(packageName, character.only = TRUE)) { 
@@ -189,25 +189,36 @@ ggplot(type_count, aes(x = "", y = percentage, fill = `netflixData$type`)) +
 
 
 #start of the web app
+#UI
 ui <- fluidPage(
-  titlePanel("Movies Released Over the Years"),
+  titlePanel("Netflix Data Analysis"),
   sidebarLayout(
     sidebarPanel(
-      sliderInput("first_year", "First Year:", min = 1941, max = 2022, value = 1941),
-      sliderInput("last_year", "Last Year:", min = 1941, max = 2022, value = 2022),
-      actionButton("update", "Update Graph")
+      conditionalPanel(
+        condition = "input.tabs == 'Movies Released Over the Years'",
+        sliderInput("first_year", "First Year:", min = 1941, max = 2022, value = 1941),
+        sliderInput("last_year", "Last Year:", min = 1941, max = 2022, value = 2022),
+        actionButton("update", "Update Graph")
+      ),
+      conditionalPanel(
+        condition = "input.tabs == 'Number of Works per Director'",
+        sliderInput("min_num", "Minimum Number of Works:", 
+                    min = 1, max = 23, value = 1, step = 1, ticks = FALSE, animate = TRUE)
+      )
     ),
     mainPanel(
-      plotOutput("moviesPlot")
+      tabsetPanel(id = "tabs",
+                  tabPanel("Movies Released Over the Years", plotOutput("moviesPlot")),
+                  tabPanel("Number of Works per Director", plotOutput("pieChart"))
+      )
     )
   )
 )
 
-
-
+# Server
 server <- function(input, output, session) {
   
-  selected_years <- reactiveValues(first_year = 1942, last_year = 2022)
+  selected_years <- reactiveValues(first_year = 1941, last_year = 2022)
   
   observeEvent(input$update, {
     selected_years$first_year <- input$first_year
@@ -220,43 +231,37 @@ server <- function(input, output, session) {
   })
   
   output$moviesPlot <- renderPlot({
-    ggplot(movies_count, aes(x = year, y = count)) +
+    movies_count <- netflixData %>%
+      filter(release_year >= selected_years$first_year & release_year <= selected_years$last_year) %>%
+      group_by(release_year) %>%
+      summarise(count = n())
+    
+    ggplot(movies_count, aes(x = release_year, y = count)) +
       geom_bar(stat = "identity", fill = "steelblue") +
-      geom_smooth(method = "loess", color = "red", size = 1) + # Add a smooth line 
-      scale_y_log10() + # Apply logarithmic scale to the y-axis 
-      scale_x_continuous(limits = c(selected_years$first_year, selected_years$last_year)) + # Set x-axis limits 
+      geom_smooth(method = "loess", formula = 'y ~ x', color = "red", size = 1) +
+      scale_y_log10() +
+      scale_x_continuous(limits = c(selected_years$first_year, selected_years$last_year)) +
       labs(title = "Number of Movies Released Over the Years (Log Scale)", x = "Release Year", y = "Number of Movies (Logarithmic)") +
       theme_minimal()
   })
-}
-
-
-shinyApp(ui = ui, server = server)
-
-
-
-
-ui <- fluidPage(
-  titlePanel("Number of Works per Director"),
-  sidebarLayout(
-    sidebarPanel(
-      sliderInput("min_num", "Minimum Number of Works:", 
-                  min = min(works$num), max = max(works$num), value = min(works$num)
-                  step = 1, ticks = FALSE, animate = TRUE))
-    ),
-    mainPanel(
-      plotOutput("pieChart")
-    )
-  )
-)
-
-
-server <- function(input, output) {
+  
   output$pieChart <- renderPlot({
-    filtered_works <- works %>%
-      filter(num >= input$min_num)
+    director_counts <- netflixData %>%
+      filter(!is.na(director)) %>%
+      separate_rows(director, sep = ", ") %>%
+      group_by(director) %>%
+      summarise(num = n()) %>%
+      ungroup() %>%
+      filter(director != "")
     
-    ggplot(filtered_works, aes(x = "", y = count, fill = factor(num))) +
+    works <- director_counts %>%
+      group_by(num) %>%
+      summarise(count = n()) %>%
+      filter(num >= input$min_num) %>%
+      mutate(num = num) %>%
+      select(num, count)
+    
+    ggplot(works, aes(x = "", y = count, fill = factor(num))) +
       geom_bar(stat = "identity", width = 1) +
       coord_polar(theta = "y") +
       labs(title = "Number of Works per Director", x = "", y = "", fill = "Number of Works") +
@@ -265,8 +270,4 @@ server <- function(input, output) {
   })
 }
 
-
 shinyApp(ui = ui, server = server)
-
-
-                                        
