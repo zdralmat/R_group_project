@@ -192,99 +192,9 @@ ggplot(type_count, aes(x = "", y = percentage, fill = `netflixData$type`)) +
 
 
 
-#ggrepel
 
-ui <- fluidPage(
-  titlePanel("Netflix Duration Visualization"),
-  
-  # Dropdown for selecting the dataset
-  selectInput(
-    inputId = "dataset", 
-    label = "Select Dataset:", 
-    choices = c("TV Shows" = "tv", "Movies" = "movies")
-  ),
-  
-  # Display the plot (only Pie Chart)
-  plotOutput(outputId = "main_plot")
-)
+#web app starts here
 
-server <- function(input, output) {
-  
-  output$main_plot <- renderPlot({
-    # Choose dataset based on user input
-    data <- if (input$dataset == "tv") {
-      netflixDataTV
-    } else {
-      netflixDataMovies <- netflixDataMovies %>%
-        filter(!is.na(duration))
-    }
-    
-    # Ensure 'duration' column exists
-    if (!"duration" %in% colnames(data)) {
-      stop("Column 'duration' not found in the dataset.")
-    }
-    
-    # Categorize durations
-    if (input$dataset == "tv") {
-      data$category <- ifelse(data$duration > 5, "+6", as.character(data$duration))
-      legend_title <- "Duration in Series"
-    } else {
-      data$category <- cut(
-        data$duration,
-        breaks = c(-Inf, 50, 70, 90, 110, 130, 150, 170, 190, Inf),
-        labels = c("0-50", "51-70", "71-90", "91-110", "111-130", "131-150", 
-                   "151-170", "171-190", "191+"),
-        include.lowest = TRUE
-      )
-      legend_title <- "Duration in Min"
-    }
-    
-    # Count occurrences in each category and calculate percentages
-    category_counts <- data %>%
-      group_by(category) %>%
-      summarise(count = n()) %>%
-      mutate(percentage = round(count / sum(count) * 100, 1))
-    
-    # Donut chart with labels and legend
-    ggplot(category_counts, aes(x = 2, y = count, fill = category)) +
-      geom_bar(stat = "identity", width = 1) +
-      coord_polar("y", start = 0) +
-      geom_label_repel(
-        aes(label = paste0(category, "\n", percentage, "%")),
-        position = position_stack(vjust = 0.5),
-        size = 5,
-        show.legend = FALSE,
-        segment.color = "grey50"
-      ) +
-      labs(
-        title = paste("Pie Chart of", input$dataset, "Durations"),
-        x = NULL, y = NULL,
-        fill = legend_title  # Dynamic legend title
-      ) +
-      theme_minimal() +
-      theme(
-        axis.text = element_blank(),
-        axis.ticks = element_blank(),
-        panel.grid = element_blank(),
-        plot.margin = margin(1, 1, 1, 1, "cm")
-      ) +
-      scale_fill_brewer(palette = "Set3") +
-      xlim(1, 3)  # Donut chart effect
-  })
-}
-
-# Run the app
-shinyApp(ui = ui, server = server)
-
-
-
-
-
-
-
-
-#start of the web app
-#UI
 ui <- fluidPage(
   titlePanel("Netflix Data Analysis"),
   sidebarLayout(
@@ -299,12 +209,21 @@ ui <- fluidPage(
         condition = "input.tabs == 'Number of Works per Director'",
         sliderInput("min_num", "Minimum Number of Works:", 
                     min = 1, max = 23, value = 1, step = 1, ticks = FALSE, animate = TRUE)
+      ),
+      conditionalPanel(
+        condition = "input.tabs == 'Netflix Duration Visualization'",
+        selectInput(
+          inputId = "dataset", 
+          label = "Select Dataset:", 
+          choices = c("TV Shows" = "tv", "Movies" = "movies")
+        )
       )
     ),
     mainPanel(
       tabsetPanel(id = "tabs",
                   tabPanel("Movies Released Over the Years", plotOutput("moviesPlot")),
-                  tabPanel("Number of Works per Director", plotOutput("pieChart"))
+                  tabPanel("Number of Works per Director", plotOutput("pieChart")),
+                  tabPanel("Netflix Duration Visualization", plotOutput("main_plot"))
       )
     )
   )
@@ -362,6 +281,67 @@ server <- function(input, output, session) {
       labs(title = "Number of Works per Director", x = "", y = "", fill = "Number of Works") +
       theme_minimal() +
       theme(axis.text.x = element_blank(), axis.ticks = element_blank())
+  })
+  
+  output$main_plot <- renderPlot({
+    # Choose dataset based on user input
+    data <- if (input$dataset == "tv") {
+      netflixDataTV
+    } else {
+      netflixDataMovies %>% filter(!is.na(duration))
+    }
+    
+    # Ensure 'duration' column exists
+    if (!"duration" %in% colnames(data)) {
+      stop("Column 'duration' not found in the dataset.")
+    }
+    
+    # Categorize durations
+    if (input$dataset == "tv") {
+      data$category <- ifelse(data$duration > 5, "+6", as.character(data$duration))
+      legend_title <- "Duration in Series"
+    } else {
+      data$category <- cut(
+        as.numeric(str_extract(data$duration, "\\d+")),
+        breaks = c(-Inf, 50, 70, 90, 110, 130, 150, 170, 190, Inf),
+        labels = c("0-50", "51-70", "71-90", "91-110", "111-130", "131-150", 
+                   "151-170", "171-190", "191+"),
+        include.lowest = TRUE
+      )
+      legend_title <- "Duration in Min"
+    }
+    
+    # Count occurrences in each category and calculate percentages
+    category_counts <- data %>%
+      group_by(category) %>%
+      summarise(count = n()) %>%
+      mutate(percentage = round(count / sum(count) * 100, 1))
+    
+    # Donut chart with labels and legend
+    ggplot(category_counts, aes(x = 2, y = count, fill = category)) +
+      geom_bar(stat = "identity", width = 1) +
+      coord_polar("y", start = 0) +
+      geom_label_repel(
+        aes(label = paste0(category, "\n", percentage, "%")),
+        position = position_stack(vjust = 0.5),
+        size = 5,
+        show.legend = FALSE,
+        segment.color = "grey50"
+      ) +
+      labs(
+        title = paste("Pie Chart of", input$dataset, "Durations"),
+        x = NULL, y = NULL,
+        fill = legend_title  # Dynamic legend title
+      ) +
+      theme_minimal() +
+      theme(
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank(),
+        plot.margin = margin(1, 1, 1, 1, "cm")
+      ) +
+      scale_fill_brewer(palette = "Set3") +
+      xlim(1, 3)  # Donut chart effect
   })
 }
 
