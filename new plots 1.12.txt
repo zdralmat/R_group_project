@@ -1,0 +1,178 @@
+#ggrepel
+
+ui <- fluidPage(
+  titlePanel("Netflix Duration Visualization"),
+  
+  # Dropdown for selecting the dataset
+  selectInput(
+    inputId = "dataset", 
+    label = "Select Dataset:", 
+    choices = c("TV Shows" = "tv", "Movies" = "movies")
+  ),
+  
+  # Display the plot (only Pie Chart)
+  plotOutput(outputId = "main_plot")
+)
+
+server <- function(input, output) {
+  
+  output$main_plot <- renderPlot({
+    # Choose dataset based on user input
+    data <- if (input$dataset == "tv") {
+      netflixDataTV
+    } else {
+      netflixDataMovies
+    }
+    
+    # Ensure 'duration' column exists
+    if (!"duration" %in% colnames(data)) {
+      stop("Column 'duration' not found in the dataset.")
+    }
+    
+    # Categorize durations
+    if (input$dataset == "tv") {
+      data$category <- ifelse(data$duration > 5, "+6", as.character(data$duration))
+      legend_title <- "Duration in Series"
+    } else {
+      data$category <- cut(
+        data$duration,
+        breaks = c(-Inf, 50, 70, 90, 110, 130, 150, 170, 190, Inf),
+        labels = c("0-50", "51-70", "71-90", "91-110", "111-130", "131-150", 
+                   "151-170", "171-190", "191+"),
+        include.lowest = TRUE
+      )
+      legend_title <- "Duration in Min"
+    }
+    
+    # Count occurrences in each category and calculate percentages
+    category_counts <- data %>%
+      group_by(category) %>%
+      summarise(count = n()) %>%
+      mutate(percentage = round(count / sum(count) * 100, 1))
+    
+    # Donut chart with labels and legend
+    ggplot(category_counts, aes(x = 2, y = count, fill = category)) +
+      geom_bar(stat = "identity", width = 1) +
+      coord_polar("y", start = 0) +
+      geom_label_repel(
+        aes(label = paste0(category, "\n", percentage, "%")),
+        position = position_stack(vjust = 0.5),
+        size = 5,
+        show.legend = FALSE,
+        segment.color = "grey50"
+      ) +
+      labs(
+        title = paste("Pie Chart of", input$dataset, "Durations"),
+        x = NULL, y = NULL,
+        fill = legend_title  # Dynamic legend title
+      ) +
+      theme_minimal() +
+      theme(
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank(),
+        plot.margin = margin(1, 1, 1, 1, "cm")
+      ) +
+      scale_fill_brewer(palette = "Set3") +
+      xlim(1, 3)  # Donut chart effect
+  })
+}
+
+# Run the app
+shinyApp(ui = ui, server = server)
+
+
+
+# MOST POPULAR ACTORS ON NETFIX
+#
+
+
+# Assume netflixData is already loaded and has a 'cast' column
+
+# Step 1: Expand the cast column into individual rows and clean the data
+actors_df <- netflixData %>%
+  filter(!is.na(cast)) %>%                             # Remove rows with missing cast data
+  separate_rows(cast, sep = ",\\s*") %>%               # Split the 'cast' column into individual rows
+  filter(str_detect(cast, "[A-Za-z]")) %>%             # Keep rows with at least one letter
+  filter(nchar(cast) > 1)                              # Remove very short entries (e.g., single letters)
+
+# Step 2: Count the occurrences of each actor
+actor_counts <- actors_df %>%
+  count(cast, sort = TRUE)                             # Count and sort actors by frequency
+
+# Step 3: Visualize the top N actors (e.g., top 10)
+top_n <- 10                                            # Adjust this number for more or fewer actors
+top_actors <- actor_counts %>% top_n(n = top_n, wt = n)
+
+# Create the plot
+ggplot(top_actors, aes(x = reorder(cast, n), y = n, fill = cast)) +
+  geom_col(show.legend = FALSE) +                      # Create a bar chart
+  coord_flip() +                                       # Horizontal bars for readability
+  labs(title = "Top Actors on Netflix",
+       x = "Actors",
+       y = "Number of Appearances") +
+  theme_minimal()
+
+
+
+# Assume netflixData is already loaded and has a 'cast' column
+
+# Step 1: Expand the cast column into individual rows and clean the data
+directors_df <- netflixData %>%
+  filter(!is.na(director)) %>%                             # Remove rows with missing cast data
+  separate_rows(director, sep = ",\\s*") %>%               # Split the 'cast' column into individual rows
+  filter(str_detect(director, "[A-Za-z]")) %>%             # Keep rows with at least one letter
+  filter(nchar(cast) > 1)                              # Remove very short entries (e.g., single letters)
+
+# Step 2: Count the occurrences of each actor
+directors_counts <- directors_df %>%
+  count(director, sort = TRUE)                             # Count and sort actors by frequency
+
+# Step 3: Visualize the top N actors (e.g., top 10)
+top_n <- 10                                            # Adjust this number for more or fewer actors
+top_directors <- directors_counts %>% top_n(n = top_n, wt = n)
+
+# Create the plot
+ggplot(top_directors, aes(x = reorder(director, n), y = n, fill = director)) +
+  geom_col(show.legend = FALSE) +                      # Create a bar chart
+  coord_flip() +                                       # Horizontal bars for readability
+  labs(title = "Top Directors on Netflix",
+       x = "Directors",
+       y = "Movies/Shows directed") +
+  theme_minimal()
+
+
+#
+
+# Assume netflixData has a 'country' column
+# Step 1: Expand and clean the 'country' column
+countries_df <- netflixData %>%
+  filter(!is.na(country)) %>%                     
+  separate_rows(country, sep = ",\\s*") %>%        
+  mutate(country = str_trim(country)) %>%         
+  filter(str_detect(country, "[A-Za-z]"))          
+
+# Step 2: Count the occurrences of each country
+country_counts <- countries_df %>%
+  count(country, sort = TRUE)
+
+# Step 3: Create "Other Countries" category
+top_n <- 10  # Display top N countries
+top_countries <- country_counts %>% 
+  top_n(n = top_n, wt = n)                         # Extract top N countries
+
+# Calculate the sum for "Other Countries"
+other_sum <- sum(country_counts$n) - sum(top_countries$n)
+
+# Add "Other Countries" row to the top_countries dataset
+top_countries <- top_countries %>%
+  add_row(country = "Other Countries", n = other_sum)
+
+# Step 4: Plot with "Other Countries"
+ggplot(top_countries, aes(x = reorder(country, n), y = n, fill = country)) +
+  geom_col(show.legend = FALSE) +                 
+  coord_flip() +                                   
+  labs(title = "Top Countries on Netflix",
+       x = "Country",
+       y = "Number of Appearances") +
+  theme_minimal()
