@@ -186,7 +186,99 @@ ggplot(type_count, aes(x = "", y = percentage, fill = `netflixData$type`)) +
   scale_fill_manual(values = c("Movie" = "#1f77b4", "TV Show" = "#ff7f0e"))+
   labs(fill = "Legend")
 
+# MOST POPULAR ACTORS ON NETFIX
+#
 
+
+# Assume netflixData is already loaded and has a 'cast' column
+
+# Step 1: Expand the cast column into individual rows and clean the data
+actors_df <- netflixData %>%
+  filter(!is.na(cast)) %>%                             # Remove rows with missing cast data
+  separate_rows(cast, sep = ",\\s*") %>%               # Split the 'cast' column into individual rows
+  filter(str_detect(cast, "[A-Za-z]")) %>%             # Keep rows with at least one letter
+  filter(nchar(cast) > 1)                              # Remove very short entries (e.g., single letters)
+
+# Step 2: Count the occurrences of each actor
+actor_counts <- actors_df %>%
+  count(cast, sort = TRUE)                             # Count and sort actors by frequency
+
+# Step 3: Visualize the top N actors (e.g., top 10)
+top_n <- 10                                            # Adjust this number for more or fewer actors
+top_actors <- actor_counts %>% top_n(n = top_n, wt = n)
+
+# Create the plot
+ggplot(top_actors, aes(x = reorder(cast, n), y = n, fill = cast)) +
+  geom_col(show.legend = FALSE) +                      # Create a bar chart
+  coord_flip() +                                       # Horizontal bars for readability
+  labs(title = "Top Actors on Netflix",
+       x = "Actors",
+       y = "Number of Appearances") +
+  theme_minimal()
+
+
+
+# Assume netflixData is already loaded and has a 'cast' column
+
+# Step 1: Expand the cast column into individual rows and clean the data
+directors_df <- netflixData %>%
+  filter(!is.na(director)) %>%                             # Remove rows with missing cast data
+  separate_rows(director, sep = ",\\s*") %>%               # Split the 'cast' column into individual rows
+  filter(str_detect(director, "[A-Za-z]")) %>%             # Keep rows with at least one letter
+  filter(nchar(cast) > 1)                              # Remove very short entries (e.g., single letters)
+
+# Step 2: Count the occurrences of each actor
+directors_counts <- directors_df %>%
+  count(director, sort = TRUE)                             # Count and sort actors by frequency
+
+# Step 3: Visualize the top N actors (e.g., top 10)
+top_n <- 10                                            # Adjust this number for more or fewer actors
+top_directors <- directors_counts %>% top_n(n = top_n, wt = n)
+
+# Create the plot
+ggplot(top_directors, aes(x = reorder(director, n), y = n, fill = director)) +
+  geom_col(show.legend = FALSE) +                      # Create a bar chart
+  coord_flip() +                                       # Horizontal bars for readability
+  labs(title = "Top Directors on Netflix",
+       x = "Directors",
+       y = "Movies/Shows directed") +
+  theme_minimal()
+
+
+#
+
+# Assume netflixData has a 'country' column
+# Step 1: Expand and clean the 'country' column
+countries_df <- netflixData %>%
+  filter(!is.na(country)) %>%                     
+  separate_rows(country, sep = ",\\s*") %>%        
+  mutate(country = str_trim(country)) %>%         
+  filter(str_detect(country, "[A-Za-z]"))          
+
+# Step 2: Count the occurrences of each country
+country_counts <- countries_df %>%
+  count(country, sort = TRUE)
+
+# Step 3: Create "Other Countries" category
+top_n <- 10  # Display top N countries
+top_countries <- country_counts %>% 
+  top_n(n = top_n, wt = n)                         # Extract top N countries
+
+# Calculate the sum for "Other Countries"
+other_sum <- sum(country_counts$n) - sum(top_countries$n)
+
+# Add "Other Countries" row to the top_countries dataset
+top_countries <- top_countries %>%
+  add_row(country = "Other Countries", n = other_sum)
+
+# Step 4: Plot with "Other Countries"
+ggplot(top_countries, aes(x = reorder(country, n), y = n, fill = country)) +
+  geom_col(show.legend = FALSE) +                 
+  coord_flip() +                                   
+  labs(title = "Top Countries on Netflix",
+       x = "Country",
+       y = "Number of Appearances") +
+  theme_minimal()
 
 
 
